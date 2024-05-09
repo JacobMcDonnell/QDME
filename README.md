@@ -66,5 +66,5 @@ manually created, eventually this will change.
 |14     |Not Implemented Yet|
 |15     |Not Implemented Yet|
 |16     |Not Implemented Yet|
-|17     |Exit with Status Code in $0|
+|17     |Exit with Status Code in $a0|
 

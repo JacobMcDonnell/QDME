@@ -1,51 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <arpa/inet.h>
-
-#define MEM_SIZE	36
-#define RA			31
-#define V0			2
-#define V1			3
-#define A0			4
-#define A1			5
-#define A2			6
-#define A3			7
-#define WORD_SIZE	4
-
-typedef struct {
-	unsigned int op: 6;
-	unsigned int rs: 5;
-	unsigned int rt: 5;
-	unsigned int rd: 5;
-	unsigned int shamt: 5;
-	unsigned int func: 6;
-} rtype_t;
-
-typedef struct {
-	unsigned int op: 6;
-	unsigned int rs: 5;
-	unsigned int rt: 5;
-	unsigned int imm: 16;
-} itype_t;
-
-typedef struct {
-	unsigned int op: 6;
-	unsigned int addr: 26;
-} jtype_t;
-
-typedef enum { NOP, RTYPE, ITYPE, JTYPE } type_t;
-
-typedef struct {
-	type_t type;
-	union {
-		uint32_t value;
-		rtype_t r;
-		jtype_t j;
-		itype_t i;
-	};
-} inst_t;
+#include "qdme.h"
 
 uint8_t memory[MEM_SIZE] = {0};
 uint32_t pc = 0, hi = 0, lo = 0;
@@ -56,6 +13,7 @@ uint32_t regFile[32] = {0};
 void InstFetch(inst_t *inst) {
 	uint32_t value = 0;
 	memcpy(&value, memory + pc, WORD_SIZE);
+	value = ntohl(value);
 	switch ((value & 0xFC000000) >> 24) {
 		case 0:
 			inst->type = RTYPE;

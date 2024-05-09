@@ -1,13 +1,15 @@
 CC=gcc
 CFLAGS=-Wall -Werror -pedantic --std=c17
-OBJS=mips.o
-TARGET=mips
+OBJS=qdme.o
+TARGET=qdme
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $@ $^
+%.o: %.c %.h
+	$(CC) $(CFLAGS) -c $@ $<
 
 all: $(TARGET)
 
 mips: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+clean:
+	rm -rf $(TARGET)
