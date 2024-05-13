@@ -4,7 +4,7 @@
 #include <arpa/inet.h>
 #include "qdme.h"
 
-uint8_t memory[MEM_SIZE] = {0};
+uint8_t memory[MEM_SIZE * WORD_SIZE] = {0};
 uint32_t pc = 0, hi = 0, lo = 0;
 uint32_t regFile[32] = {0};
 
@@ -13,7 +13,6 @@ uint32_t regFile[32] = {0};
 void InstFetch(inst_t *inst) {
 	uint32_t value = 0;
 	memcpy(&value, memory + pc, WORD_SIZE);
-	value = ntohl(value);
 	switch ((value & 0xFC000000) >> 24) {
 		case 0:
 			inst->type = RTYPE;
@@ -185,6 +184,7 @@ void InstExec(const inst_t inst) {
 	if (inst.type == NOP) {
 		return;
 	}
+	int16_t imm = inst.i.imm;
 	switch (inst.j.op) {
 		case 0: // R-type instruction
 			ExecRtype(inst);
@@ -197,43 +197,41 @@ void InstExec(const inst_t inst) {
 			break;
 		case 4: // beq
 			pc = (regFile[inst.i.rs] == regFile[inst.i.rt]) ? pc + 4 +
-				inst.i.imm : pc;
+				imm : pc;
 			break;
 		case 5: // bne
 			pc = (regFile[inst.i.rs] != regFile[inst.i.rt]) ? pc + 4 +
-				inst.i.imm : pc;
+				imm : pc;
 			break;
 		case 8: // addi
-			regFile[inst.i.rt] = (signed)inst.i.rs + (signed)inst.i.imm;
+			regFile[inst.i.rt] = (signed)inst.i.rs + imm;
 			break;
 		case 9: // addiu
-			regFile[inst.i.rt] = inst.i.rs + inst.i.imm;
+			regFile[inst.i.rt] = inst.i.rs + (uint16_t)imm;
 			break;
 		case 12: // andi
-			regFile[inst.i.rt] = inst.i.rs & inst.i.imm;
+			regFile[inst.i.rt] = inst.i.rs & (uint16_t)imm;
 			break;
 		case 13: // ori
-			regFile[inst.i.rt] = inst.i.rs | inst.i.imm;
+			regFile[inst.i.rt] = inst.i.rs | (uint16_t)imm;
 			break;
 		case 14: // xori
-			regFile[inst.i.rt] = inst.i.rs ^ inst.i.imm;
+			regFile[inst.i.rt] = inst.i.rs ^ (uint16_t)imm;
 			break;
 		case 10: // slti
-			regFile[inst.i.rt] = (signed)inst.i.rs < (signed)inst.i.imm;
+			regFile[inst.i.rt] = (signed)inst.i.rs < imm;
 			break;
 		case 11: // sltiu
-			regFile[inst.i.rt] = inst.i.rs < inst.i.imm;
+			regFile[inst.i.rt] = inst.i.rs < (uint16_t)imm;
 			break;
 		case 15: // lui
-			regFile[inst.i.rt] = inst.i.imm << 16;
+			regFile[inst.i.rt] = (uint16_t)imm << 16;
 			break;
 		case 35: // lw
-			memcpy(regFile + inst.i.rs, memory + inst.i.rt + inst.i.imm,
-					WORD_SIZE);
+			memcpy(regFile + inst.i.rs, memory + inst.i.rt + imm, WORD_SIZE);
 			break;
 		case 43: // sw
-			memcpy(memory + inst.i.rt + inst.i.imm, regFile + inst.i.rs,
-					WORD_SIZE);
+			memcpy(memory + inst.i.rt + imm, regFile + inst.i.rs, WORD_SIZE);
 			break;
 	}
 }
@@ -255,12 +253,31 @@ int LoadBinary(const char * const path) {
 		perror("LoadBinary");
 		return -1;
 	}
-	int8_t byte = 0;
-	size_t i = 0;
-	while ((byte = fgetc(fp)) != EOF && i < MEM_SIZE) {
-		memory[i++] = byte;
+
+	uint8_t *freeMem = memory;
+	size_t i = 0, offset = 0;
+	while ((i = fread(freeMem + offset, sizeof(memory[0]), (MEM_SIZE * WORD_SIZE) - offset, fp)) != 0) {
+		offset += i;
 	}
+
+	if (ferror(fp) || !feof(fp)) {
+		perror("fread");
+		return -1;
+	}
+
 	fclose(fp);
+
+	/* Convert from Big Endian to Little Endian */
+	uint32_t test = 10;
+	if (test != ntohl(test)) {
+		for (size_t j = 0; j < offset; j += WORD_SIZE) {
+			uint32_t word = 0;
+			memcpy(&word, memory + j, WORD_SIZE);
+			word = ntohl(word);
+			memcpy(memory + j, &word, WORD_SIZE);
+		}
+	}
+
 	return 0;
 }
 

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MEM_SIZE		36
+#define MEM_SIZE		4096
 #define RA				31
 #define V0				2
 #define V1				3
