@@ -16,4 +16,4 @@ mips: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -rf $(TARGET)
+	rm -rf $(TARGET) $(OBJS)

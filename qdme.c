@@ -13,7 +13,7 @@ uint32_t regFile[32] = {0};
 void InstFetch(inst_t *inst) {
 	uint32_t value = 0;
 	memcpy(&value, memory + pc, WORD_SIZE);
-	switch ((value & 0xFC000000) >> 24) {
+	switch ((value & 0xFC000000) >> 26) {
 		case 0:
 			inst->type = RTYPE;
 			inst->r.op = (value & 0xFC000000) >> 26;
@@ -166,11 +166,10 @@ void ExecRtype(const inst_t inst) {
 		case 19: // MTLO
 			lo = regFile[r.rs];
 			break;
-		case 8: // jr
-			pc = a;
-			break;
 		case 9: // jalr
-			regFile[r.rd] = pc + 4;
+			regFile[r.rd] = pc;
+			/* Intentional Fall Through */
+		case 8: // jr
 			pc = a;
 			break;
 		case 12: // syscall
@@ -190,10 +189,10 @@ void InstExec(const inst_t inst) {
 			ExecRtype(inst);
 			break;
 		case 3: // jal
-			regFile[RA] = pc + 4;
+			regFile[RA] = pc;
 			/* intentional fall through */
 		case 2: // j
-			pc = (0xF0000000 & pc ) | inst.j.addr;
+			pc = (0xF0000000 & pc ) | (signed)inst.j.addr;
 			break;
 		case 4: // beq
 			pc = (regFile[inst.i.rs] == regFile[inst.i.rt]) ? pc + 4 +
