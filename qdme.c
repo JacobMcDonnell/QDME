@@ -227,10 +227,12 @@ void InstExec(const inst_t inst) {
 			regFile[inst.i.rt] = (uint16_t)imm << 16;
 			break;
 		case 35: // lw
-			memcpy(regFile + inst.i.rs, memory + inst.i.rt + imm, WORD_SIZE);
+			memcpy(regFile + inst.i.rt, memory + regFile[inst.i.rs] + imm,
+					WORD_SIZE);
 			break;
 		case 43: // sw
-			memcpy(memory + inst.i.rt + imm, regFile + inst.i.rs, WORD_SIZE);
+			memcpy(memory + regFile[inst.i.rs] + imm, regFile + inst.i.rt,
+					WORD_SIZE);
 			break;
 	}
 }
@@ -257,6 +259,12 @@ int LoadBinary(const char * const path) {
 	size_t i = 0, offset = 0;
 	while ((i = fread(freeMem + offset, sizeof(memory[0]), (MEM_SIZE * WORD_SIZE) - offset, fp)) != 0) {
 		offset += i;
+	}
+
+	for (size_t i = 0; i < offset; i += 4) {
+		uint32_t x;
+		memcpy(&x, memory + i, sizeof(x));
+		printf("%02lu: 0x%08x\n", i, x);
 	}
 
 	if (ferror(fp) || !feof(fp)) {
