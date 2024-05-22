@@ -3,7 +3,10 @@
 ## Intro
 
 QDME is a simple MIPS emulator written in C. Currently the binary file must be
-manually created, eventually this will change.
+manually created, eventually this will change. QDME will use the native byte
+order of the machine. [QDMA](https://github.com/JacobMcDonnell/QDMA), the
+assembler written for this emulator, also assembles based on the host byte
+order.
 
 ## Instructions
 |Instruction|Type|Action|

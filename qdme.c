@@ -265,18 +265,6 @@ int LoadBinary(const char * const path) {
 	}
 
 	fclose(fp);
-
-	/* Convert from Big Endian to Little Endian */
-	uint32_t test = 10;
-	if (test != ntohl(test)) {
-		for (size_t j = 0; j < offset; j += WORD_SIZE) {
-			uint32_t word = 0;
-			memcpy(&word, memory + j, WORD_SIZE);
-			word = ntohl(word);
-			memcpy(memory + j, &word, WORD_SIZE);
-		}
-	}
-
 	return 0;
 }
 

@@ -5,14 +5,14 @@ SRCS=qdme.c
 TARGET=qdme
 
 %.o: %.c %.h
-	$(CC) $(CFLAGS) -c $@ $<
+	$(CC) $(CFLAGS) -c $<
 
 all: $(TARGET)
 
 debug: $(SRCS)
 	$(CC) $(CFLAGS) -g -o $(TARGET) $^
 
-mips: $(OBJS)
+qdme: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
