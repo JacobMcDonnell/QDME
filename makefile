@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Werror -pedantic --std=c17
-OBJS=qdme.o
-SRCS=qdme.c
+OBJS=qdme.o elf.o
+SRCS=qdme.c elf.c
 TARGET=qdme
 
 %.o: %.c %.h

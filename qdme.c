@@ -3,10 +3,14 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "qdme.h"
+#include "elf.h"
 
-uint8_t memory[MEM_SIZE * WORD_SIZE] = {0};
+uint8_t *memory = NULL;
+size_t memsize;
 uint32_t pc = 0, hi = 0, lo = 0;
 uint32_t regFile[32] = {0};
+
+int LoadProgramHeader(ProgramHeader_t p, FILE *fp);
 
 /* InstFetch: Fetch the next instruction from memory into the given
  * instruction */
@@ -241,7 +245,7 @@ void CycleCpu(void) {
 	inst_t instFetch, instExec;
 	memset(&instFetch, 0, sizeof(inst_t));
 	memset(&instExec, 0, sizeof(inst_t));
-	while (pc < MEM_SIZE) {
+	while (pc < memsize) {
 		InstFetch(&instFetch);
 		InstExec(instExec);
 		instExec = instFetch;
@@ -255,24 +259,61 @@ int LoadBinary(const char * const path) {
 		return -1;
 	}
 
-	uint8_t *freeMem = memory;
-	size_t i = 0, offset = 0;
-	while ((i = fread(freeMem + offset, sizeof(memory[0]), (MEM_SIZE * WORD_SIZE) - offset, fp)) != 0) {
-		offset += i;
-	}
-
-	for (size_t i = 0; i < offset; i += 4) {
-		uint32_t x;
-		memcpy(&x, memory + i, sizeof(x));
-		printf("%02lu: 0x%08x\n", i, x);
-	}
-
-	if (ferror(fp) || !feof(fp)) {
-		perror("fread");
+	ElfHeader_t e = ReadElf(fp);
+	if (!ValidateElf(e)) {
 		return -1;
 	}
 
+	pc = e.e_entry;
+
+	const size_t n = e.e_phnum;
+	ProgramHeader_t *p = (ProgramHeader_t *)calloc(n, e.e_phentsize);
+	if (p == NULL) {
+		perror("calloc");
+		return -1;
+	}
+	ReadProgramHeader(n, p, fp);
+
+	for (size_t i = 0; i < n; i++) {
+		memsize += p[i].memsz;
+	}
+
+	if ((memory = (uint8_t *)calloc(memsize, sizeof(uint8_t))) == NULL) {
+		perror("calloc");
+		free((void *)p);
+		fclose(fp);
+		return -1;
+	}
+
+	for (size_t i = 0; i < n; i++) {
+		if (LoadProgramHeader(p[i], fp) == -1) {
+			free((void *)p);
+			fclose(fp);
+			return -1;
+		}
+	}
+
+	free((void *)p);
 	fclose(fp);
+	return 0;
+}
+
+/* LoadProgramHeader: Load the program segment described by the given program
+ * header from file fp. Returns 0 on success and -1 on failure. */
+int LoadProgramHeader(ProgramHeader_t p, FILE *fp) {
+	uint8_t *memloc = memory + p.vaddr;
+	size_t s = p.filesz;
+	if (fseek(fp, p.offset, SEEK_SET) != 0) {
+		perror("fseek");
+		return -1;
+	}
+	fread(memloc, sizeof(uint8_t), s, fp);
+	if (ferror(fp)) {
+		return -1;
+	}
+	for (size_t j = p.vaddr; j < p.filesz; j++) {
+		printf("%lu: %08x\n", j, memory[j]);
+	}
 	return 0;
 }
 
@@ -281,5 +322,6 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	CycleCpu();
+	free((void *)memory);
 }
 
