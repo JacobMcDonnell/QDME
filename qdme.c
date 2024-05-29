@@ -1,14 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include "qdme.h"
 #include "elf.h"
 
 uint8_t *memory = NULL;
-size_t memsize;
+size_t memsize = MEM_PADD;
 uint32_t pc = 0, hi = 0, lo = 0;
 uint32_t regFile[32] = {0};
+int exitStatus = 0;
+bool run = true;
 
 int LoadProgramHeader(ProgramHeader_t p, FILE *fp);
 
@@ -76,7 +79,9 @@ void Syscall(void) {
 		case 9:	// sbrk
 			break;
 		case 10:	//exit
-			exit(0);
+			exitStatus = 0;
+			run = false;
+			break;
 		case 11:	// print char
 			printf("%c", regFile[A0]);
 			break;
@@ -94,7 +99,9 @@ void Syscall(void) {
 		case 16:	// close file
 			break;
 		case 17:	// exit2
-			exit(regFile[A0]);
+			exitStatus = regFile[A0];
+			run = false;
+			break;
 	}
 }
 
@@ -188,6 +195,7 @@ void InstExec(const inst_t inst) {
 		return;
 	}
 	int16_t imm = inst.i.imm;
+	int32_t a = regFile[inst.i.rs];
 	switch (inst.j.op) {
 		case 0: // R-type instruction
 			ExecRtype(inst);
@@ -207,28 +215,28 @@ void InstExec(const inst_t inst) {
 				imm : pc;
 			break;
 		case 8: // addi
-			regFile[inst.i.rt] = (signed)inst.i.rs + imm;
+			regFile[inst.i.rt] = a + imm;
 			break;
 		case 9: // addiu
-			regFile[inst.i.rt] = inst.i.rs + (uint16_t)imm;
+			regFile[inst.i.rt] = (unsigned)a + imm;
 			break;
 		case 12: // andi
-			regFile[inst.i.rt] = inst.i.rs & (uint16_t)imm;
+			regFile[inst.i.rt] = a & imm;
 			break;
 		case 13: // ori
-			regFile[inst.i.rt] = inst.i.rs | (uint16_t)imm;
+			regFile[inst.i.rt] = a | imm;
 			break;
 		case 14: // xori
-			regFile[inst.i.rt] = inst.i.rs ^ (uint16_t)imm;
+			regFile[inst.i.rt] = a ^ imm;
 			break;
 		case 10: // slti
-			regFile[inst.i.rt] = (signed)inst.i.rs < imm;
+			regFile[inst.i.rt] = a < imm;
 			break;
 		case 11: // sltiu
-			regFile[inst.i.rt] = inst.i.rs < (uint16_t)imm;
+			regFile[inst.i.rt] = (unsigned)a < (uint16_t)imm;
 			break;
 		case 15: // lui
-			regFile[inst.i.rt] = (uint16_t)imm << 16;
+			regFile[inst.i.rt] = imm << 16;
 			break;
 		case 35: // lw
 			memcpy(regFile + inst.i.rt, memory + regFile[inst.i.rs] + imm,
@@ -245,7 +253,7 @@ void CycleCpu(void) {
 	inst_t instFetch, instExec;
 	memset(&instFetch, 0, sizeof(inst_t));
 	memset(&instExec, 0, sizeof(inst_t));
-	while (pc < memsize) {
+	while (pc < memsize && run) {
 		InstFetch(&instFetch);
 		InstExec(instExec);
 		instExec = instFetch;
@@ -311,9 +319,6 @@ int LoadProgramHeader(ProgramHeader_t p, FILE *fp) {
 	if (ferror(fp)) {
 		return -1;
 	}
-	for (size_t j = p.vaddr; j < p.filesz; j++) {
-		printf("%lu: %08x\n", j, memory[j]);
-	}
 	return 0;
 }
 
@@ -323,5 +328,6 @@ int main(int argc, char *argv[]) {
 	}
 	CycleCpu();
 	free((void *)memory);
+	return exitStatus;
 }
 
